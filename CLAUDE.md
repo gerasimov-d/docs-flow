@@ -18,9 +18,12 @@ src/DocsFlow.Api/                ASP.NET Core приложение (пока п�
 src/DocsFlow.Storage/            объектное хранилище: IObjectStorage + реализация поверх S3
 src/DocsFlow.Database/           доступ к данным: Npgsql + Dapper
 src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный контейнер)
-src/DocsFlow.Web/                веб-клиент на React, отдаётся nginx
 tests/                           интеграционные тесты (Testcontainers)
+client/                          веб-клиент на React, отдаётся nginx
 ```
+
+Серверный код лежит в `src/`, клиентский — в `client/`. Они не смешиваются: у клиента своя
+сборка, свои зависимости и свой контейнер, и `dotnet` про него ничего не знает.
 
 Версии пакетов .NET — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
 в `Directory.Build.props`. В отдельных `.csproj` версии и `TargetFramework` не дублируются.
@@ -37,7 +40,7 @@ dotnet test               # поднимает свои контейнеры, co
 Клиент собирается и проверяется своими командами, `dotnet` его не трогает:
 
 ```bash
-cd src/DocsFlow.Web
+cd client
 npm ci                    # первый запуск в новом worktree
 npm run check             # типы + линт + формат + тесты
 npm run dev               # dev-сервер на 5173, /api проксируется на localhost:5023
@@ -55,8 +58,8 @@ SPA на React (Vite, TypeScript, React Router, TanStack Query, Tailwind). Со�
 `entities` → `shared`. Слой импортирует только нижележащие и только через public API слайса
 (`index.ts`). Оба правила проверяет ESLint, а не code review: нарушение валит `npm run check`.
 
-Детали — в `src/DocsFlow.Web/CLAUDE.md` и в `README.md` каждого слоя. Правило «не добавлять
-зависимости без согласования» распространяется и на npm-пакеты.
+Детали — в `client/CLAUDE.md` и в `README.md` каждого слоя. Правило «не добавлять зависимости
+без согласования» распространяется и на npm-пакеты.
 
 ## Параллельные сессии
 
@@ -104,7 +107,7 @@ dotnet build && dotnet test                   # обязательно зелё�
 git push origin HEAD:dev
 ```
 
-Задача трогала `src/DocsFlow.Web` — там же зелёный `npm run check`.
+Задача трогала `client/` — там же зелёный `npm run check`.
 
 Push отклонён, потому что кто-то влил раньше — повторить цикл с начала. Не форсить.
 
@@ -131,7 +134,7 @@ MinIO один на все worktree и поднимается только в о
 кеш-заголовки, SPA-fallback.
 
 `node_modules` в каждом worktree свой и в git не попадает: после создания worktree нужен
-`npm ci` в `src/DocsFlow.Web`.
+`npm ci` в `client/`.
 
 ## Продуктовые принципы
 
