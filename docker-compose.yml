@@ -65,6 +65,26 @@ services:
     environment:
       Database__Postgres__ConnectionString: "Host=postgres;Port=5432;Username=${POSTGRES_USER:-docsflow};Password=${POSTGRES_PASSWORD:-docsflow-secret};Database=${POSTGRES_DB:-docsflow}"
 
+  # Собранный клиент отдаёт nginx, а не бэкенд: статика и API живут отдельными процессами.
+  # Он же проксирует /api, поэтому браузер видит один origin и обходится без CORS.
+  web:
+    build:
+      context: src/DocsFlow.Web
+    environment:
+      # Пока API запускается на хосте через `dotnet run`. Когда он переедёт в compose,
+      # значение станет http://api:8080.
+      API_ORIGIN: ${API_ORIGIN:-http://host.docker.internal:5023}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
 volumes:
   minio-data:
   postgres-data:

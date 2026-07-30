@@ -14,21 +14,49 @@
 ## Структура
 
 ```
-src/DocsFlow.Api/         ASP.NET Core приложение (пока пустое)
-src/DocsFlow.Storage/     объектное хранилище: IObjectStorage + реализация поверх S3
-tests/                    интеграционные тесты (Testcontainers)
+src/DocsFlow.Api/                ASP.NET Core приложение (пока пустое)
+src/DocsFlow.Storage/            объектное хранилище: IObjectStorage + реализация поверх S3
+src/DocsFlow.Database/           доступ к данным: Npgsql + Dapper
+src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный контейнер)
+src/DocsFlow.Web/                веб-клиент на React, отдаётся nginx
+tests/                           интеграционные тесты (Testcontainers)
 ```
 
-Версии пакетов — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
+Версии пакетов .NET — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
 в `Directory.Build.props`. В отдельных `.csproj` версии и `TargetFramework` не дублируются.
+Зависимости клиента живут в своём `package.json` и фиксируются `package-lock.json`.
 
 ## Команды
 
 ```bash
-docker compose up -d      # локальное окружение (MinIO), только в основном репозитории
+docker compose up -d      # локальное окружение (MinIO, Postgres), только в основном репозитории
 dotnet build
 dotnet test               # поднимает свои контейнеры, compose для этого не нужен
 ```
+
+Клиент собирается и проверяется своими командами, `dotnet` его не трогает:
+
+```bash
+cd src/DocsFlow.Web
+npm ci                    # первый запуск в новом worktree
+npm run check             # типы + линт + формат + тесты
+npm run dev               # dev-сервер на 5173, /api проксируется на localhost:5023
+```
+
+## Веб-клиент
+
+SPA на React (Vite, TypeScript, React Router, TanStack Query, Tailwind). Собирается в статику
+и отдаётся отдельным контейнером с nginx — бэкенд статику не раздаёт. Тот же nginx проксирует
+`/api` на API, поэтому браузер видит один origin и CORS не нужен.
+
+Серверного рендеринга нет: вход в приложение за авторизацией, индексировать поисковикам нечего.
+
+Код разложен по **Feature-Sliced Design**: `app` → `pages` → `widgets` → `features` →
+`entities` → `shared`. Слой импортирует только нижележащие и только через public API слайса
+(`index.ts`). Оба правила проверяет ESLint, а не code review: нарушение валит `npm run check`.
+
+Детали — в `src/DocsFlow.Web/CLAUDE.md` и в `README.md` каждого слоя. Правило «не добавлять
+зависимости без согласования» распространяется и на npm-пакеты.
 
 ## Параллельные сессии
 
@@ -76,6 +104,8 @@ dotnet build && dotnet test                   # обязательно зелё�
 git push origin HEAD:dev
 ```
 
+Задача трогала `src/DocsFlow.Web` — там же зелёный `npm run check`.
+
 Push отклонён, потому что кто-то влил раньше — повторить цикл с начала. Не форсить.
 
 После интеграции убрать за собой:
@@ -94,6 +124,14 @@ MinIO один на все worktree и поднимается только в о
 
 `dotnet test` от этого не зависит — Testcontainers поднимает свой MinIO на свободном порту,
 поэтому тесты из разных worktree идут параллельно и не мешают друг другу.
+
+Клиент в compose — сервис `web` на порту 8080, тот же контейнер с nginx, что и в проде.
+Для разработки он не нужен: `npm run dev` поднимает Vite со своим прокси и не конфликтует
+с другими worktree. Собирать образ имеет смысл, когда проверяется именно раздача — сборка,
+кеш-заголовки, SPA-fallback.
+
+`node_modules` в каждом worktree свой и в git не попадает: после создания worktree нужен
+`npm ci` в `src/DocsFlow.Web`.
 
 ## Продуктовые принципы
 
