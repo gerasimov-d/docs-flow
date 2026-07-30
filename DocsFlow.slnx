@@ -1,9 +1,12 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/DocsFlow.Api/DocsFlow.Api.csproj" />
+    <Project Path="src/DocsFlow.Database/DocsFlow.Database.csproj" />
+    <Project Path="src/DocsFlow.Database.Migrator/DocsFlow.Database.Migrator.csproj" />
     <Project Path="src/DocsFlow.Storage/DocsFlow.Storage.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/DocsFlow.Database.Tests/DocsFlow.Database.Tests.csproj" />
     <Project Path="tests/DocsFlow.Storage.Tests/DocsFlow.Storage.Tests.csproj" />
   </Folder>
 </Solution>

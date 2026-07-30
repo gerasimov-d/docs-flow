@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FluentMigrator.Runner.Postgres"/>
+        <!-- FluentMigrator грузит ADO.NET-провайдер рефлексией и не тянет Npgsql как зависимость:
+             драйвер должен положить в output само приложение, иначе раннер его не найдёт. -->
+        <PackageReference Include="Npgsql"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
+    </ItemGroup>
+
+</Project>

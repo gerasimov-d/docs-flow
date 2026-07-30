@@ -5,6 +5,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\DocsFlow.Database\DocsFlow.Database.csproj"/>
         <ProjectReference Include="..\DocsFlow.Storage\DocsFlow.Storage.csproj"/>
     </ItemGroup>
 

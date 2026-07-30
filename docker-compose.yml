@@ -37,5 +37,34 @@ services:
         mc mb --ignore-existing "local/$$MINIO_BUCKET"
         mc anonymous set none "local/$$MINIO_BUCKET"
 
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-docsflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-docsflow-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-docsflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docsflow} -d ${POSTGRES_DB:-docsflow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # Схему накатывает инфраструктура, а не приложение: приложению права на DDL не нужны.
+  migrator:
+    build:
+      context: .
+      dockerfile: src/DocsFlow.Database.Migrator/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      Database__Postgres__ConnectionString: "Host=postgres;Port=5432;Username=${POSTGRES_USER:-docsflow};Password=${POSTGRES_PASSWORD:-docsflow-secret};Database=${POSTGRES_DB:-docsflow}"
+
 volumes:
   minio-data:
+  postgres-data:

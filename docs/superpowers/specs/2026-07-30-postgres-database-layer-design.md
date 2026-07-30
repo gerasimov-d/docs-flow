@@ -33,7 +33,7 @@
 | Проект | Тип | Роль | Зависимости (NuGet) | Кто ссылается |
 |---|---|---|---|---|
 | `src/DocsFlow.Database` | class lib | Runtime-доступ к данным | `Npgsql`, `Dapper`, `Microsoft.Extensions.Options.*` | `DocsFlow.Api` |
-| `src/DocsFlow.Database.Migrator` | console (Exe) | Применение миграций FluentMigrator | `FluentMigrator.Runner.Postgres`, `Microsoft.Extensions.*` | только compose-контейнер |
+| `src/DocsFlow.Database.Migrator` | console (Exe) | Применение миграций FluentMigrator | `FluentMigrator.Runner.Postgres`, `Npgsql`, `Microsoft.Extensions.*` | только compose-контейнер |
 | `tests/DocsFlow.Database.Tests` | test | Интеграционные тесты | `Testcontainers.PostgreSql`, `xunit.v3`, `Shouldly` | — |
 
 **Ключевой инвариант разделения:** `DocsFlow.Api` ссылается только на `DocsFlow.Database` и
@@ -98,7 +98,8 @@
 
 POCO:
 ```csharp
-public sealed record DemoNote(long Id, string Title, DateTimeOffset CreatedAt);
+// created_at (timestamptz) Npgsql отдаёт как DateTime (Kind=Utc) — это и есть натуральный CLR-тип.
+public sealed record DemoNote(long Id, string Title, DateTime CreatedAt);
 ```
 `DemoNoteRepository` через `IDbConnectionFactory` + Dapper:
 - `Task<long> AddAsync(string title, CancellationToken ct)` — `INSERT ... RETURNING id`.
@@ -215,6 +216,23 @@ public sealed record DemoNote(long Id, string Title, DateTimeOffset CreatedAt);
 - Вся работа — в worktree `db/postgres-scaffold` от `origin/dev`; основной репозиторий не трогаем.
 - Регулярный `git fetch origin && git merge origin/dev`; интеграция в `dev` — по правилам CLAUDE.md
   (зелёные `dotnet build` и `dotnet test`, `push origin HEAD:dev`, без форса).
+
+## Замечания по реализации (по итогам прогона)
+
+Некритичные, но неочевидные вещи, на которые наткнётся следующая задача:
+
+- **Мигратор напрямую ссылается на `Npgsql`.** `FluentMigrator.Runner.Postgres` не тянет Npgsql
+  транзитивно — он грузит ADO.NET-драйвер рефлексией и ждёт, что `Npgsql.dll` окажется в output
+  приложения. Без прямой ссылки контейнер-мигратор падает на `ValidateConnection`
+  («Could not load file or assembly 'Npgsql'»). В тестах это не всплывает: там Npgsql приходит
+  через `DocsFlow.Database`.
+- **`timestamptz` ↔ `DateTime` (Kind=Utc).** Натуральный CLR-тип Npgsql для `timestamp with time
+  zone` — `DateTime`, а не `DateTimeOffset`; Dapper подбирает конструктор записи по типам колонок,
+  поэтому `DemoNote.CreatedAt` — `DateTime`.
+- **`libgssapi-krb5-2` в runtime-образе мигратора.** Иначе Npgsql на старте пишет пугающую (но
+  безобидную) ошибку про попытку подгрузить GSSAPI. Авторизация у нас по паролю, GSS не нужен.
+- **Логи FluentMigrator в консоль** (`AddFluentMigratorConsole`) — чтобы в логах one-shot
+  контейнера было видно, какие миграции применились.
 
 ## Вне скоупа
 
