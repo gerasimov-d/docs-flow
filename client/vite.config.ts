@@ -16,11 +16,17 @@ export default defineConfig({
     },
   },
   server: {
+    // Порт фиксирован: он входит в адреса возврата, зарегистрированные в realm Keycloak.
+    // Съехав на соседний порт, вход перестанет работать с невнятной ошибкой.
     port: 5173,
+    strictPort: true,
     proxy: {
+      // Сюда же попадают колбэки OIDC — они лежат под /api/auth/, а не по путям по умолчанию.
       '/api': {
         target: API_PROXY_TARGET,
-        changeOrigin: true,
+        // Host намеренно не подменяется: из него API собирает redirect_uri для Keycloak.
+        // С changeOrigin вход уводил бы на порт API (5023), где нет клиента, вместо 5173.
+        changeOrigin: false,
       },
     },
   },

@@ -14,7 +14,7 @@
 |---|---|---|
 | `secret` клиента | `docsflow-web-dev-secret` в git | из окружения, в git не попадает |
 | `sslRequired` | `none` — локально всё по http | `all` |
-| `redirectUris` | `localhost:8080` (nginx с клиентом), `localhost:5023` и `localhost:7207` (API напрямую) | реальный домен |
+| `redirectUris` | `localhost:8080` (nginx с клиентом), `localhost:5173` (dev-сервер Vite), `localhost:5023` и `localhost:7207` (API напрямую) | реальный домен |
 | SMTP | контейнер `mailpit`, письма никуда не уходят | настоящий провайдер |
 
 Dev-креденшелы в репозитории — тот же порядок, что уже действует для MinIO и Postgres
