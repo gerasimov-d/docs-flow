@@ -88,6 +88,13 @@ public static class AuthenticationServiceCollectionExtensions
                 oidc.ResponseMode = OpenIdConnectResponseMode.Query;
                 oidc.UsePkce = true;
 
+                // Колбэки лежат под /api/, а не на дефолтных /signin-oidc и /signout-callback-oidc.
+                // В браузере приложение живёт за nginx, который отдаёт статику клиента, а на бэкенд
+                // проксирует только /api/. Колбэк вне этого префикса до приложения бы не дошёл —
+                // nginx отдал бы на него index.html.
+                oidc.CallbackPath = "/api/auth/signin-callback";
+                oidc.SignedOutCallbackPath = "/api/auth/signout-callback";
+
                 // Токены складываются в тикет, а тикет — в шифрованную cookie. Наружу не уходят.
                 oidc.SaveTokens = true;
 

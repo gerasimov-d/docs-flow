@@ -57,7 +57,12 @@ internal sealed class KeycloakAdminClient : IDisposable
 
         var update = new Dictionary<string, object?>
         {
-            ["redirectUris"] = new[] { $"{appBaseAddress}/signin-oidc" },
+            // Пути обязаны совпадать с CallbackPath и SignedOutCallbackPath в конвейере.
+            ["redirectUris"] = new[]
+            {
+                $"{appBaseAddress}/api/auth/signin-callback",
+                $"{appBaseAddress}/api/auth/signout-callback",
+            },
             ["webOrigins"] = new[] { appBaseAddress },
             ["attributes"] = new Dictionary<string, string>
             {

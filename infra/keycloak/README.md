@@ -14,7 +14,7 @@
 |---|---|---|
 | `secret` клиента | `docsflow-web-dev-secret` в git | из окружения, в git не попадает |
 | `sslRequired` | `none` — локально всё по http | `all` |
-| `redirectUris` | `localhost:5023` и `localhost:7207` из `launchSettings.json` | реальный домен |
+| `redirectUris` | `localhost:8080` (nginx с клиентом), `localhost:5023` и `localhost:7207` (API напрямую) | реальный домен |
 | SMTP | контейнер `mailpit`, письма никуда не уходят | настоящий провайдер |
 
 Dev-креденшелы в репозитории — тот же порядок, что уже действует для MinIO и Postgres
@@ -30,6 +30,10 @@ Dev-креденшелы в репозитории — тот же порядо�
 - `accessTokenLifespan: 300` — определяет, через сколько до приложения доходит отзыв доступа:
   отключённый в Keycloak пользователь не проходит обмен refresh-токена и выпадает из сервиса.
 - PKCE `S256` обязателен, `directAccessGrantsEnabled: false` — вход только через браузерный flow.
+- Адреса возврата — `/api/auth/signin-callback` и `/api/auth/signout-callback`, а не дефолтные
+  `/signin-oidc` и `/signout-callback-oidc`: nginx проксирует на бэкенд только `/api/`, поэтому
+  колбэк вне этого префикса до приложения не дойдёт. Пути задаются в конвейере аутентификации
+  (`CallbackPath` и `SignedOutCallbackPath`) и обязаны совпадать с этим списком.
 
 ## Локальные адреса
 

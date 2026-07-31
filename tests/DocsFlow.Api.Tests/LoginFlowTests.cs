@@ -75,11 +75,6 @@ public sealed class LoginFlowTests(DocsFlowAppFixture fixture) : IClassFixture<D
         afterLogout.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
-    /// <summary>
-    /// Проходит вход так же, как это сделал бы браузер: редирект на Keycloak, отправка формы,
-    /// возврат на <c>/signin-oidc</c>. Единственная проверка, подтверждающая, что realm, конфиг
-    /// клиента и настройки cookie согласованы между собой.
-    /// </summary>
     private static async Task<Me?> ReadMeAsync(BrowserClient client)
     {
         using var response = await client.GetAsync("/api/me", Ct);
@@ -89,6 +84,11 @@ public sealed class LoginFlowTests(DocsFlowAppFixture fixture) : IClassFixture<D
         return await response.Content.ReadFromJsonAsync<Me>(Ct);
     }
 
+    /// <summary>
+    /// Проходит вход так же, как это сделал бы браузер: редирект на Keycloak, отправка формы,
+    /// возврат на <c>/api/auth/signin-callback</c>. Единственная проверка, подтверждающая, что
+    /// realm, конфиг клиента и настройки cookie согласованы между собой.
+    /// </summary>
     private async Task LogInAsync(BrowserClient client)
     {
         using var loginPage = await client.GetAsync("/api/auth/login", Ct);
