@@ -2,7 +2,7 @@
 
 **Дата:** 2026-07-30
 **Ветка:** `auth/users-and-keycloak` (worktree от `origin/dev`)
-**Статус:** решения согласованы с владельцем, открытых вопросов нет
+**Статус:** реализовано; расхождения с первоначальным планом отмечены по тексту
 
 ## Смена продуктовой рамки
 
@@ -221,7 +221,7 @@ RETURNING id, keycloak_subject, email, display_name, created_at, updated_at, las
 | `Authority` | `string` | `[Required]`, напр. `http://localhost:8080/realms/docsflow` |
 | `ClientId` | `string` | `[Required]` |
 | `ClientSecret` | `string` | `[Required]`, конфиденциальный клиент |
-| `RequireHttpsMetadata` | `bool` | по умолчанию `true`; `false` только в Development |
+| `RequireHttps` | `bool` | по умолчанию `true`; управляет и метаданными, и флагом `Secure` у cookie |
 
 Регистрация — как у `PostgresOptions`: `Bind` + `ValidateDataAnnotations` + `ValidateOnStart`.
 
@@ -238,8 +238,9 @@ OIDC-схема задействуется исключительно на вх�
 
 **Cookie:**
 - `HttpOnly = true` — JavaScript не читает; в этом весь смысл BFF.
-- `SecurePolicy = Always` — браузеры допускают `Secure`-cookie на `http://localhost`, поэтому в
-  Development ослаблять не нужно.
+- `SecurePolicy` — `Always` либо `SameAsRequest` по настройке `RequireHttps`. Не по имени
+  окружения: настройка, ослабляющая защиту сессии, должна быть видна в конфиге, а не выводиться
+  из «Development».
 - `SameSite = Lax`, а не `Strict`: `Strict` не отправит cookie на возврате из Keycloak, и вход
   зациклится. `Lax` при этом уже блокирует cross-site POST — базовая защита от CSRF (см. ниже).
 - `ExpireTimeSpan = 14 дней`, `SlidingExpiration = false` — срок жизни определяется обновлением
@@ -365,9 +366,11 @@ Cookie шифруется ключами Data Protection. По умолчани�
   `/docker-entrypoint-initdb.d/`. Скрипт исполняется **только при инициализации пустого тома** —
   на уже существующем `postgres-data` базу придётся создать руками. Записать в README-раздел
   `CLAUDE.md`. Отдельный инстанс Postgres для Keycloak — избыточен для локального окружения.
-- **Healthcheck.** В образе Keycloak 26 нет ни `curl`, ни `wget`; штатный приём — проба через
-  `/dev/tcp` из встроенного bash по management-порту 9000 (`/health/ready`). Точная формулировка —
-  при реализации, с проверкой что `docker compose ps` показывает `healthy`.
+- **Healthcheck не заводится** (отступление от первоначального плана). В образе Keycloak 26 нет ни
+  `curl`, ни `wget`, так что проверку пришлось бы писать пробой через `/dev/tcp` из bash. При этом
+  от готовности Keycloak в compose ничего не зависит — приложения там нет, — поэтому хрупкая
+  проверка приносила бы только ложное «unhealthy» в `docker compose ps`. Заводить её имеет смысл
+  тогда, когда в compose появится API с `depends_on`.
 - **Порт 8080** свободен и не конфликтует с MinIO (9000/9001) и Postgres (5432). Как и MinIO,
   Keycloak поднимается **только в основном репозитории**, один на все worktree.
 
@@ -413,10 +416,11 @@ Postgres в Testcontainers, миграции — тем же раннером; `
    строк по-прежнему одна.
 3. Два `UpsertBySubjectAsync` с одним `sub` параллельно (`Task.WhenAll`) — оба успешны, в таблице
    одна строка. Это тест ровно на ту гонку, из-за которой выбран `ON CONFLICT`.
-4. `GetByIdAsync` для неизвестного id — `null`.
-5. Миграция: таблица `users` существует, `keycloak_subject` уникален.
-6. Валидация `KeycloakOptions` падает без обязательных полей (зеркало
-   `PostgresOptionsValidationTests`).
+4. `GetByIdAsync` для неизвестного id — `null`, для созданного — профиль.
+5. Миграция: таблица `users` существует, `keycloak_subject` уникален, `email` проиндексирован
+   **без** уникальности.
+
+Валидация `KeycloakOptions` живёт в `DocsFlow.Api.Tests` — сам тип принадлежит `DocsFlow.Api`.
 
 ### tests/DocsFlow.Api.Tests
 
@@ -498,6 +502,41 @@ realm расходится с продовым и flow регистрации н
   трогаем.
 - Регулярный `git fetch origin && git merge origin/dev`; интеграция в `dev` по правилам
   `CLAUDE.md` (зелёные `dotnet build` и `dotnet test`, `push origin HEAD:dev`, без форса).
+
+## Замечания по реализации (по итогам прогона)
+
+Неочевидные вещи, на которые наткнётся следующая задача. Первые три касаются только тестов, но
+съели больше всего времени.
+
+- **`ConfigureAppConfiguration` в `WebApplicationFactory` не работает при minimal hosting в нашем
+  случае.** Колбэки отложенного хост-билдера применяются только к первому `builder.Build()`, а
+  сквозной тест поднимает второй хост (см. ниже) — и настройки до него не доходят. Молча: значения
+  берутся из `appsettings`, тест валится с непонятной ошибкой. Работают `UseSetting` и
+  `UseEnvironment` — они часть конфигурации хоста, а не колбэк.
+- **`WebApplicationFactory` требует хост именно с `TestServer`**: она сразу приводит `IServer` к
+  этому типу и падает с `InvalidCastException`, если подменить сервер на Kestrel. Поэтому строятся
+  **два** хоста: один с `TestServer` для самой фабрики, второй на реальном Kestrel — по нему ходят
+  тесты. Реальный Kestrel обязателен: вход уводит клиента редиректами на Keycloak в контейнере, а
+  `TestServer` живёт только в памяти.
+- **Keycloak ставит `Secure` на свои cookie даже при `sslRequired: none`** (`KC_RESTART`,
+  `AUTH_SESSION_ID` — `Secure; SameSite=None`). Браузеры считают `http://localhost` доверенным
+  источником и такие cookie возвращают, а `CookieContainer` в .NET исключения не делает: сохраняет,
+  но по http не отправляет. Keycloak на это отвечает «Restart login cookie not found». Перехватить
+  снаружи нельзя — cookie обрабатываются внутри `HttpClientHandler`, — поэтому в тестах свой
+  `BrowserClient` с ручным хранилищем cookie и ручным проходом по редиректам.
+- **Пользователю нужны имя и фамилия.** Без них Keycloak не пускает дальше входа и требует
+  дозаполнить профиль (обязательное действие `VERIFY_PROFILE`) — вход останавливается на странице
+  «Update Account Information». Касается и тестовых пользователей, и живой регистрации.
+- **`AsString()` в FluentMigrator на Postgres — это `varchar(255)`**, а не `text`. Для `email` и
+  `keycloak_subject` ограничение длины ничего не защищает, поэтому колонки объявлены через
+  `AsCustom("text")`.
+- **Два `RedirectContext`.** У cookie-схемы он обобщённый и лежит в
+  `Microsoft.AspNetCore.Authentication`, у OIDC — необобщённый в
+  `...Authentication.OpenIdConnect`. При обоих `using` компилятор выбирает второй; разводится
+  алиасом.
+- **`id_token` для выхода нужно достать до разлогина.** `SignOutAsync` OIDC-схемы берёт
+  `id_token_hint` из переданных ему `AuthenticationProperties`, а не из текущей сессии. Порядок:
+  `AuthenticateAsync` → забрать `id_token` → выйти из cookie → выйти из OIDC с этим токеном.
 
 ## Вне скоупа
 

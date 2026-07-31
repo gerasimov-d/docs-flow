@@ -25,9 +25,13 @@
 ## Структура
 
 ```
-src/DocsFlow.Api/         ASP.NET Core приложение (пока пустое)
-src/DocsFlow.Storage/     объектное хранилище: IObjectStorage + реализация поверх S3
-tests/                    интеграционные тесты (Testcontainers)
+src/DocsFlow.Api/                ASP.NET Core приложение: конвейер аутентификации и эндпоинты
+src/DocsFlow.Storage/            объектное хранилище: IObjectStorage + реализация поверх S3
+src/DocsFlow.Database/           доступ к Postgres: IDbConnectionFactory + Dapper
+src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный процесс)
+src/DocsFlow.Users/              пользователи: модель, репозиторий, провижининг при входе
+infra/                           конфигурация окружения: realm Keycloak, init-скрипты Postgres
+tests/                           интеграционные тесты (Testcontainers)
 ```
 
 Версии пакетов — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
@@ -36,10 +40,12 @@ tests/                    интеграционные тесты (Testcontainer
 ## Команды
 
 ```bash
-docker compose up -d      # локальное окружение (MinIO), только в основном репозитории
+docker compose up -d      # локальное окружение, только в основном репозитории
 dotnet build
 dotnet test               # поднимает свои контейнеры, compose для этого не нужен
 ```
+
+Локальное окружение — MinIO, Postgres, Keycloak и Mailpit; подробности в разделе «Окружение».
 
 ## Параллельные сессии
 
@@ -98,13 +104,26 @@ git -C ~/pet/docs-flow branch -d <область>/<тема>
 
 ### Окружение
 
-MinIO один на все worktree и поднимается только в основном репозитории. В worktree
-`docker compose up` не запускать: порты 9000/9001 уже заняты, второй стек не встанет.
-Конфигурация в `appsettings.Development.json` одинакова во всех worktree и указывает
-на тот же `localhost:9000`.
+Стек поднимается **только в основном репозитории** и один на все worktree: MinIO (9000/9001),
+Postgres (5432), Keycloak (8080), Mailpit (1025 SMTP и 8025 веб-интерфейс). В worktree
+`docker compose up` не запускать: порты уже заняты, второй стек не встанет. Конфигурация в
+`appsettings.Development.json` одинакова во всех worktree и указывает на те же адреса.
 
-`dotnet test` от этого не зависит — Testcontainers поднимает свой MinIO на свободном порту,
-поэтому тесты из разных worktree идут параллельно и не мешают друг другу.
+`dotnet test` от этого не зависит — Testcontainers поднимает свои Postgres, MinIO и Keycloak
+на свободных портах, поэтому тесты из разных worktree идут параллельно и не мешают друг другу.
+
+Про Keycloak стоит знать три вещи:
+
+- **База `keycloak`** живёт в том же инстансе Postgres и создаётся скриптом из
+  `infra/postgres/init`. Скрипт исполняется только при инициализации **пустого** тома, поэтому на
+  уже существующем `postgres-data` базу нужно создать руками:
+  `docker compose exec postgres createdb -U docsflow keycloak`.
+- **Realm импортируется только если его ещё нет.** Правки в `infra/keycloak/realm-export.json` на
+  созданный realm не влияют — либо менять настройку в админке, либо удалять базу `keycloak`.
+- **Письма никуда не уходят**: подтверждение email и восстановление пароля читаются в Mailpit на
+  http://localhost:8025.
+
+Подробнее — `infra/keycloak/README.md`.
 
 ## Продуктовые принципы
 

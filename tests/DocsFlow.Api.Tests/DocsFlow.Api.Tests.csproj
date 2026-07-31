@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <OutputType>Exe</OutputType>
+        <!-- xunit.v3 работает через Microsoft.Testing.Platform, а не VSTest. -->
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="Testcontainers.Keycloak"/>
+        <PackageReference Include="Testcontainers.PostgreSql"/>
+        <PackageReference Include="xunit.v3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\DocsFlow.Api\DocsFlow.Api.csproj"/>
+        <ProjectReference Include="..\..\src\DocsFlow.Database.Migrator\DocsFlow.Database.Migrator.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Тот же realm, что и в docker compose: расхождение настроек realm ↔ конфига клиента
+             ловится тестом только если файл один. -->
+        <Content Include="..\..\infra\keycloak\realm-export.json" Link="realm-export.json">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+</Project>

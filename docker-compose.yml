@@ -47,6 +47,9 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # Заводит базу для Keycloak. Исполняется только при инициализации пустого тома —
+      # на уже существующем postgres-data базу нужно создать руками (см. infra/postgres/init).
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-docsflow} -d ${POSTGRES_DB:-docsflow}"]
       interval: 5s
@@ -64,6 +67,37 @@ services:
         condition: service_healthy
     environment:
       Database__Postgres__ConnectionString: "Host=postgres;Port=5432;Username=${POSTGRES_USER:-docsflow};Password=${POSTGRES_PASSWORD:-docsflow-secret};Database=${POSTGRES_DB:-docsflow}"
+
+  # Аутентификация и учётные данные пользователей. Приложение к Admin API не обращается —
+  # регистрацию, подтверждение email и восстановление пароля Keycloak делает сам.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    # start-dev — только для локальной разработки: он не требует TLS и не проверяет hostname.
+    # Продакшн — start с KC_HOSTNAME и сертификатами.
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-docsflow}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-docsflow-secret}
+    volumes:
+      # Realm импортируется только если его ещё нет: правки в файле на созданный realm не влияют.
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "8080:8080"   # админка и страницы входа
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Перехватывает письма Keycloak (подтверждение email, восстановление пароля), чтобы наружу
+  # из разработки ничего не уходило. В приложение не входит и в продакшн-конфигурацию не попадает.
+  mailpit:
+    image: axllent/mailpit:v1.30.6
+    ports:
+      - "1025:1025"   # SMTP, сюда пишет Keycloak
+      - "8025:8025"   # веб-интерфейс: читать письма
 
 volumes:
   minio-data:

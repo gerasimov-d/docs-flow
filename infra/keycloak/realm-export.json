@@ -1,0 +1,55 @@
+{
+  "realm": "docsflow",
+  "enabled": true,
+  "displayName": "DocsFlow",
+
+  "registrationAllowed": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+
+  "sslRequired": "none",
+
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1209600,
+  "ssoSessionMaxLifespan": 2592000,
+
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@docsflow.local",
+    "fromDisplayName": "DocsFlow",
+    "auth": "false",
+    "ssl": "false",
+    "starttls": "false"
+  },
+
+  "clients": [
+    {
+      "clientId": "docsflow-web",
+      "name": "DocsFlow Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "docsflow-web-dev-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:5023/signin-oidc",
+        "https://localhost:7207/signin-oidc"
+      ],
+      "webOrigins": [
+        "http://localhost:5023",
+        "https://localhost:7207"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5023/*##https://localhost:7207/*"
+      }
+    }
+  ]
+}

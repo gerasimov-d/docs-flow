@@ -4,9 +4,12 @@
     <Project Path="src/DocsFlow.Database/DocsFlow.Database.csproj" />
     <Project Path="src/DocsFlow.Database.Migrator/DocsFlow.Database.Migrator.csproj" />
     <Project Path="src/DocsFlow.Storage/DocsFlow.Storage.csproj" />
+    <Project Path="src/DocsFlow.Users/DocsFlow.Users.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/DocsFlow.Api.Tests/DocsFlow.Api.Tests.csproj" />
     <Project Path="tests/DocsFlow.Database.Tests/DocsFlow.Database.Tests.csproj" />
     <Project Path="tests/DocsFlow.Storage.Tests/DocsFlow.Storage.Tests.csproj" />
+    <Project Path="tests/DocsFlow.Users.Tests/DocsFlow.Users.Tests.csproj" />
   </Folder>
 </Solution>
