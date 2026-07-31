@@ -49,7 +49,7 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("pgvector/pgvector:0.8.6-pg17").Build();
 
-    private DocsFlowApp _app = null!;
+    private DocsFlowApp? _app;
 
     /// <summary>Адрес приложения на реальном Kestrel.</summary>
     public string BaseAddress { get; private set; } = null!;
@@ -106,7 +106,14 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await _app.DisposeAsync();
+        // Инициализация могла оборваться на старте контейнеров — приложения тогда ещё нет.
+        // Падение здесь xUnit пришивает к каждому тесту отдельной записью Test Class Cleanup
+        // Failure: счётчик тестов растёт, а настоящая причина сбоя теряется среди них.
+        if (_app is not null)
+        {
+            await _app.DisposeAsync();
+        }
+
         await Task.WhenAll(_keycloak.DisposeAsync().AsTask(), _postgres.DisposeAsync().AsTask());
     }
 

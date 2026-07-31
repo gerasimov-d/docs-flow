@@ -7,7 +7,7 @@ using Xunit;
 
 namespace DocsFlow.Users.Tests;
 
-public sealed class UsersMigrationTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+public sealed class UsersMigrationTests(PostgresFixture fixture)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

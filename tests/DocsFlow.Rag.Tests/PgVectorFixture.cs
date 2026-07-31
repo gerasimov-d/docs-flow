@@ -4,34 +4,37 @@ using DocsFlow.Database.Migrator;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace DocsFlow.Rag.Tests;
 
 /// <summary>
-/// Поднимает Postgres с pgvector, накатывает миграции тем же кодом, что и мигратор, и собирает
-/// пайплайн тем же <c>AddRag</c>, которым его получит приложение. В сеть тесты не ходят: модель
-/// эмбеддингов подменена фейком, клиент чата не зарегистрирован вовсе.
+/// Накатывает миграции на отдельную базу тестового класса и собирает пайплайн тем же
+/// <c>AddRag</c>, которым его получит приложение. В сеть тесты не ходят: модель эмбеддингов
+/// подменена фейком, клиент чата не зарегистрирован вовсе.
 /// </summary>
-public sealed class PgVectorFixture : IAsyncLifetime
+/// <remarks>
+/// Контейнер общий на сборку (<see cref="PostgresContainerFixture"/>), а база — своя у каждого
+/// класса: классы идут параллельно, и на общей базе чистка индекса в одном классе сносила бы
+/// данные другого.
+/// </remarks>
+public sealed class PgVectorFixture(PostgresContainerFixture postgres) : IAsyncLifetime
 {
     /// <summary>Совпадает с размерностью колонки в миграции.</summary>
     public const int Dimensions = 1024;
 
-    // Образ пинуется той же версией, что и в docker-compose.yml.
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("pgvector/pgvector:0.8.6-pg17")
-        .Build();
+    private ServiceProvider? _services;
 
-    private ServiceProvider _services = null!;
-
-    public IServiceProvider Services => _services;
+    public IServiceProvider Services => _services
+        ?? throw new InvalidOperationException("Фикстура не инициализирована.");
 
     public async ValueTask InitializeAsync()
     {
-        await _container.StartAsync();
+        // Имя базы — от класса, который фикстуру запросил: в логах Postgres видно, чьи запросы.
+        // В нижнем регистре, потому что Postgres так приводит имена без кавычек.
+        var databaseName = (TestContext.Current.TestClass?.TestClassSimpleName ?? "rag").ToLowerInvariant();
 
-        var connectionString = _container.GetConnectionString();
+        var connectionString = await postgres.CreateDatabaseAsync(databaseName);
 
         MigrationRunnerFactory.MigrateUp(connectionString);
 
@@ -53,7 +56,7 @@ public sealed class PgVectorFixture : IAsyncLifetime
     /// <summary>Чистит индекс: база у тестового класса одна, а поиск идёт по всей таблице.</summary>
     public async Task ResetAsync(CancellationToken cancellationToken)
     {
-        var factory = _services.GetRequiredService<IDbConnectionFactory>();
+        var factory = Services.GetRequiredService<IDbConnectionFactory>();
 
         await using var connection = await factory.OpenConnectionAsync(cancellationToken);
 
@@ -64,7 +67,7 @@ public sealed class PgVectorFixture : IAsyncLifetime
 
     public async Task<int> CountChunksAsync(string sourceKey, CancellationToken cancellationToken)
     {
-        var factory = _services.GetRequiredService<IDbConnectionFactory>();
+        var factory = Services.GetRequiredService<IDbConnectionFactory>();
 
         await using var connection = await factory.OpenConnectionAsync(cancellationToken);
 
@@ -76,7 +79,13 @@ public sealed class PgVectorFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await _services.DisposeAsync();
-        await _container.DisposeAsync();
+        // Инициализация могла оборваться на создании базы — сервисов тогда ещё нет. Падение здесь
+        // xUnit пришивает к каждому тесту отдельной записью Test Class Cleanup Failure: счётчик
+        // тестов растёт, а настоящая причина сбоя теряется среди них. Базу за собой не убираем —
+        // её уносит контейнер.
+        if (_services is not null)
+        {
+            await _services.DisposeAsync();
+        }
     }
 }

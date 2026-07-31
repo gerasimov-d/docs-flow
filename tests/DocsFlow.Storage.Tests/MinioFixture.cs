@@ -22,7 +22,7 @@ public sealed class MinioFixture : IAsyncLifetime
         .WithPassword(Password)
         .Build();
 
-    private ServiceProvider _services = null!;
+    private ServiceProvider? _services;
 
     public IObjectStorage Storage { get; private set; } = null!;
 
@@ -51,7 +51,14 @@ public sealed class MinioFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await _services.DisposeAsync();
+        // Инициализация могла оборваться на старте контейнера — сервисов тогда ещё нет.
+        // Падение здесь xUnit пришивает к каждому тесту отдельной записью Test Class Cleanup
+        // Failure: счётчик тестов растёт, а настоящая причина сбоя теряется среди них.
+        if (_services is not null)
+        {
+            await _services.DisposeAsync();
+        }
+
         await _container.DisposeAsync();
     }
 }

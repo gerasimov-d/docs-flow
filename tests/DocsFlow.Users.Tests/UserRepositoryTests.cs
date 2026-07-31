@@ -6,7 +6,7 @@ using Xunit;
 
 namespace DocsFlow.Users.Tests;
 
-public sealed class UserRepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+public sealed class UserRepositoryTests(PostgresFixture fixture)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

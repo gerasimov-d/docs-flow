@@ -5,7 +5,7 @@ using Xunit;
 
 namespace DocsFlow.Database.Tests;
 
-public sealed class DemoNoteRepositoryTests(PostgresFixture fixture) : IClassFixture<PostgresFixture>
+public sealed class DemoNoteRepositoryTests(PostgresFixture fixture)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
