@@ -25,6 +25,35 @@ public sealed class LoginFlowTests(DocsFlowAppFixture fixture) : IClassFixture<D
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
+    [Theory]
+    [InlineData("https", "https://")]
+    [InlineData("http", "http://")]
+    public async Task Addresses_are_built_from_the_protocol_reported_by_the_proxy(
+        string forwardedProto,
+        string expectedPrefix)
+    {
+        using var handler = new HttpClientHandler { AllowAutoRedirect = false };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri(fixture.BaseAddress) };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
+
+        // Так выглядит запрос за прокси, терминирующим TLS: до приложения он дошёл по http,
+        // а браузер разговаривал с прокси по https.
+        request.Headers.Add("X-Forwarded-Proto", forwardedProto);
+
+        using var response = await client.SendAsync(request, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Found);
+
+        // Проверяем адрес возврата после выхода, а не redirect_uri входа: последний уходит в
+        // Keycloak отдельным backchannel-запросом (pushed authorization request) и в ссылке
+        // не появляется. Собираются оба из схемы запроса, так что проверяется одно и то же.
+        var postLogoutRedirectUri = QueryValue(response.Headers.Location!, "post_logout_redirect_uri");
+
+        postLogoutRedirectUri.ShouldNotBeNull();
+        postLogoutRedirectUri.ShouldStartWith(expectedPrefix);
+    }
+
     [Fact]
     public async Task Logging_in_creates_a_session_and_the_user_row()
     {
@@ -145,6 +174,22 @@ public sealed class LoginFlowTests(DocsFlowAppFixture fixture) : IClassFixture<D
 
         throw new InvalidOperationException(
             "На странице Keycloak не нашлась форма входа kc-form-login — вероятно, изменилась её разметка.");
+    }
+
+    /// <summary>Достаёт значение query-параметра. Отдельный метод, чтобы не тянуть в тесты System.Web.</summary>
+    private static string? QueryValue(Uri uri, string name)
+    {
+        foreach (var pair in uri.Query.TrimStart('?').Split('&'))
+        {
+            var separator = pair.IndexOf('=');
+
+            if (separator > 0 && pair[..separator] == name)
+            {
+                return Uri.UnescapeDataString(pair[(separator + 1)..]);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Срезает разметку до читаемого объёма: в сообщении об ошибке нужна суть, а не вся страница.</summary>
