@@ -1,1 +1,103 @@
 @import 'tailwindcss';
+@import './fonts.css';
+
+/*
+ * Токены дизайн-системы Organic: тёплая песочная подложка, терракотовый акцент и шалфейный
+ * второй голос. Значения берутся отсюда, а не пишутся хексами по месту — иначе оттенки
+ * расползаются по компонентам и правка палитры перестаёт быть одной правкой.
+ *
+ * Имена ролевые, а не цветовые: `surface`, `ink-muted`, `danger`. Из имени видно, куда цвет
+ * можно ставить, и смена палитры не превращает `sand-200` в ложь.
+ */
+@theme {
+  --font-sans: 'Onest', system-ui, sans-serif;
+  --font-display: 'Rubik', 'Onest', system-ui, sans-serif;
+
+  /* Поверхности — от подложки приложения к самой поднятой карточке. */
+  --color-page: #f5ead8;
+  --color-surface: #f9f4ed;
+  --color-raised: #ebddc5;
+  --color-panel: #f0e6d3;
+  --color-muted: #eee7db;
+
+  /* Текст: пять ступеней от заголовка до самой тихой подписи. */
+  --color-ink: #201e1d;
+  --color-ink-soft: #2e2b25;
+  --color-ink-dim: #474238;
+  --color-ink-muted: #645c50;
+  --color-ink-subtle: #82796a;
+  --color-ink-faint: #a19786;
+
+  /* Линии: обычная граница, внутренняя разделительная и пунктир для «ничего не выбрано». */
+  --color-line: #dcd3c4;
+  --color-line-soft: #eee7db;
+  --color-line-dashed: #c0b6a5;
+
+  /* Акцент. `accent` — на заливке, `accent-deep` — для текста: контраста самого акцента
+     хватает иконкам и крупному тексту, но не строчному. */
+  --color-accent: #c67139;
+  --color-accent-strong: #b2622d;
+  --color-accent-deep: #8c491a;
+  --color-accent-ink: #402310;
+  --color-accent-tint: #ffe1d0;
+  --color-accent-wash: #fff2eb;
+  --color-accent-edge: #ffc6a5;
+  --color-on-accent: #f5ead8;
+
+  /* Второй голос — шалфей. Статус «готов», аватары, ответы системы. */
+  --color-sage: #7a8a5e;
+  --color-sage-strong: #728157;
+  --color-sage-deep: #56633f;
+  --color-sage-ink: #3d472b;
+  --color-sage-tint: #e1eecc;
+  --color-on-sage: #f0fae1;
+
+  /* Ошибка. Отдельная роль, а не «красный акцент»: у неё своя подложка и своя рамка. */
+  --color-danger: #b23a26;
+  --color-danger-deep: #8f2d1e;
+  --color-danger-tint: #f9dbd6;
+  --color-danger-edge: #eeb9b0;
+  --color-danger-wash: #fdf3ef;
+
+  /* 28px — радиус оболочки экрана и модалок. Карточки (16px) и миниатюры (8px) уже есть
+     в шкале Tailwind как `rounded-2xl` и `rounded-lg`. */
+  --radius-4xl: 1.75rem;
+
+  --shadow-card: 0 1px 2px rgb(46 43 37 / 0.14);
+  --shadow-pop: 0 3px 10px rgb(46 43 37 / 0.16);
+  --shadow-float: 0 12px 32px rgb(46 43 37 / 0.22);
+
+  /* Пульс живёт на индикаторах идущей обработки: точка у space, активная стадия конвейера. */
+  --animate-beat: beat 1.8s ease-in-out infinite;
+
+  @keyframes beat {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
+@layer base {
+  body {
+    background-color: var(--color-page);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Фокус темизирован во всём приложении: синее кольцо браузера в этой палитре выглядит
+   * чужеродно, а убирать его без замены нельзя — клавиатурная навигация ослепнет.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+}

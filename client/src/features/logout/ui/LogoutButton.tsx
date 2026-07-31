@@ -1,3 +1,5 @@
+import { Button } from '@/shared/ui'
+
 /**
  * Выход — отправка формы, а не fetch. Сервер отвечает редиректом на Keycloak: тот гасит SSO-сессию
  * и возвращает браузер обратно. fetch прошёл бы этот редирект в фоне, упёрся в чужой origin, и
@@ -9,12 +11,9 @@
 export function LogoutButton() {
   return (
     <form method="post" action="/api/auth/logout">
-      <button
-        type="submit"
-        className="rounded border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-100"
-      >
+      <Button type="submit" variant="dangerOutline" icon="log-out">
         Выйти
-      </button>
+      </Button>
     </form>
   )
 }

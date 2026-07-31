@@ -20,6 +20,10 @@ export class HttpError extends Error {
  *
  * Тип ответа не проверяется в рантайме: контракт задаёт бэкенд, и расхождение
  * ловится тестами, а не догадками на клиенте.
+ *
+ * Ответ без тела (204 у переименования, приглашения, отзыва доступа) отдаётся как
+ * `undefined`: вызывать такие эндпоинты через голый `fetch` в обход этой функции значило бы
+ * потерять и базовый путь, и разбор ошибок ради одной строки разбора ответа.
  */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
@@ -37,6 +41,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!response.ok) {
     throw new HttpError(response.status, response.statusText, await response.text())
+  }
+
+  if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+    return undefined as T
   }
 
   return (await response.json()) as T
