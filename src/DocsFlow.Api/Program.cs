@@ -1,6 +1,8 @@
 using DocsFlow.Api.Authentication;
 using DocsFlow.Api.Endpoints;
 using DocsFlow.Database;
+using DocsFlow.Llm;
+using DocsFlow.Rag;
 using DocsFlow.Storage;
 using DocsFlow.Users;
 
@@ -11,6 +13,8 @@ builder.Services.AddS3ObjectStorage(builder.Configuration);
 builder.Services.AddPostgresDatabase(builder.Configuration);
 builder.Services.AddUsers();
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
+builder.Services.AddLlm(builder.Configuration);
+builder.Services.AddRag(builder.Configuration);
 
 var app = builder.Build();
 

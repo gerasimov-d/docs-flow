@@ -25,6 +25,8 @@ src/DocsFlow.Storage/            объектное хранилище: IObjectS
 src/DocsFlow.Database/           доступ к данным: Npgsql + Dapper
 src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный контейнер)
 src/DocsFlow.Users/              пользователи: модель, репозиторий, провижининг при входе
+src/DocsFlow.Llm/                адаптер к LLM: OpenAI-совместимые провайдеры, устойчивость
+src/DocsFlow.Rag/                поиск по смыслу: чанкинг, вектора в pgvector, ответ с цитатами
 infra/                           конфигурация окружения: realm Keycloak, init-скрипты Postgres
 tests/                           интеграционные тесты (Testcontainers)
 client/                          веб-клиент на React, отдаётся nginx
@@ -71,6 +73,21 @@ SPA на React (Vite, TypeScript, React Router, TanStack Query, Tailwind). Со�
 
 Детали — в `client/CLAUDE.md` и в `README.md` каждого слоя. Правило «не добавлять зависимости
 без согласования» распространяется и на npm-пакеты.
+
+## LLM и поиск по смыслу
+
+Клиенты моделей — `Microsoft.Extensions.AI` (`IChatClient`, `IEmbeddingGenerator`) поверх любого
+OpenAI-совместимого endpoint: облачного или локального, разница только в `Llm:*:Endpoint`.
+Вектора живут в Postgres (pgvector, HNSW, косинус), поэтому образ БД — `pgvector/pgvector`,
+а не ванильный `postgres`; версия пинуется одинаково в compose и во всех fixture.
+
+`DocsFlow.Rag` **не ссылается ни на `DocsFlow.Llm`, ни на пакет провайдера** — только на
+вендор-нейтральные абстракции. Так принцип provider-agnostic проверяет компилятор, а не ревью;
+ссылку на `Microsoft.Extensions.AI.OpenAI` из пайплайна добавлять нельзя.
+
+Генерация выключается конфигом (`Llm:Chat:Enabled: false`) — тогда `IChatClient` не регистрируется,
+и сценарий деградирует до поиска по смыслу. Ответ без ссылки на фрагмент наружу не отдаётся:
+это проверяет код в `RagService`, а не текст промпта.
 
 ## Параллельные сессии
 

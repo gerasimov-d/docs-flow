@@ -15,7 +15,7 @@ namespace DocsFlow.Users.Tests;
 public sealed class PostgresFixture : IAsyncLifetime
 {
     // Образ пинуется той же версией, что и в docker-compose.yml.
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:17.6")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("pgvector/pgvector:0.8.6-pg17")
         .Build();
 
     private ServiceProvider _services = null!;

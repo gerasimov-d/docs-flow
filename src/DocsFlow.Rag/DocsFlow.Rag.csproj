@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        Здесь намеренно нет ни ссылки на DocsFlow.Llm, ни пакета конкретного провайдера
+        (Microsoft.Extensions.AI.OpenAI и подобных): пайплайн работает только с вендор-нейтральными
+        абстракциями Microsoft.Extensions.AI. Продуктовый принцип «provider-agnostic» проверяет
+        компилятор, а не code review.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="Microsoft.Extensions.AI"/>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions"/>
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions"/>
+        <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations"/>
+        <PackageReference Include="Pgvector"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\DocsFlow.Database\DocsFlow.Database.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="DocsFlow.Rag.Tests"/>
+    </ItemGroup>
+
+</Project>

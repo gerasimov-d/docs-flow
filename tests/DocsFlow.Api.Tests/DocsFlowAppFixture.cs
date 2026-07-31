@@ -47,7 +47,7 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
         .WithCommand("--import-realm")
         .Build();
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:17.6").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("pgvector/pgvector:0.8.6-pg17").Build();
 
     private DocsFlowApp _app = null!;
 
@@ -84,6 +84,11 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
             ["Storage:S3:AccessKey"] = "unused",
             ["Storage:S3:SecretKey"] = "unused",
             ["Storage:S3:BucketName"] = "unused",
+            // Как и модели: генерацию выключаем совсем, эмбеддингам хватает валидного адреса —
+            // запросов к ним в сценариях входа нет.
+            ["Llm:Chat:Enabled"] = "false",
+            ["Llm:Embeddings:Endpoint"] = "http://localhost:11434/v1",
+            ["Llm:Embeddings:Model"] = "unused",
         });
 
         // Обращение к Services поднимает хост — только после этого известен порт.
