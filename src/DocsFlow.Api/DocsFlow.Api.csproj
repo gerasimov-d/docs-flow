@@ -7,6 +7,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\DocsFlow.Database\DocsFlow.Database.csproj"/>
+        <ProjectReference Include="..\DocsFlow.Llm\DocsFlow.Llm.csproj"/>
+        <ProjectReference Include="..\DocsFlow.Rag\DocsFlow.Rag.csproj"/>
         <ProjectReference Include="..\DocsFlow.Storage\DocsFlow.Storage.csproj"/>
         <ProjectReference Include="..\DocsFlow.Users\DocsFlow.Users.csproj"/>
     </ItemGroup>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using Pgvector.Dapper;
 
 namespace DocsFlow.Database;
 
@@ -27,10 +28,21 @@ public static class ServiceCollectionExtensions
         // Настройка глобальная и идемпотентная.
         DefaultTypeMap.MatchNamesWithUnderscores = true;
 
+        // Тип vector из pgvector Dapper сам не читает и не пишет. Обработчик регистрируется здесь,
+        // рядом с остальными конвенциями маппинга: это ответственность слоя доступа к данным,
+        // а не того слайса, которому вектора понадобились.
+        SqlMapper.AddTypeHandler(new VectorTypeHandler());
+
         services.AddSingleton<NpgsqlDataSource>(sp =>
         {
             var options = sp.GetRequiredService<IOptions<PostgresOptions>>().Value;
-            return new NpgsqlDataSourceBuilder(options.ConnectionString).Build();
+
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(options.ConnectionString);
+
+            // Без UseVector Npgsql не знает типа vector и отправляет параметр как unknown.
+            dataSourceBuilder.UseVector();
+
+            return dataSourceBuilder.Build();
         });
 
         services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
