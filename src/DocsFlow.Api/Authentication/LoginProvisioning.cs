@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DocsFlow.Spaces;
 using DocsFlow.Users;
 using Microsoft.AspNetCore.Authentication;
 
@@ -10,6 +11,13 @@ namespace DocsFlow.Api.Authentication;
 /// </summary>
 internal static class LoginProvisioning
 {
+    /// <summary>
+    /// Имя первого space. Нейтральное и переименовываемое: угадывать за пользователя, как он
+    /// назовёт своё пространство, смысла нет, а состояние «войти можно, а грузить некуда»
+    /// недопустимо.
+    /// </summary>
+    private const string FirstSpaceName = "Личное";
+
     public static async Task OnTicketReceivedAsync(TicketReceivedContext context)
     {
         var logger = context.HttpContext.RequestServices
@@ -48,6 +56,24 @@ internal static class LoginProvisioning
 
         var users = context.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
         var user = await users.UpsertBySubjectAsync(identityFromToken, context.HttpContext.RequestAborted);
+
+        // Первый space заводится здесь же, а не при первой загрузке документа: иначе между
+        // регистрацией и загрузкой существует состояние «залогинен, но грузить некуда». Метод
+        // идемпотентен, поэтому на каждом следующем входе он ничего не делает. Ошибка отсюда
+        // всплывает и отменяет вход — пустить пользователя без space хуже, чем не пустить вовсе.
+        var spaces = context.HttpContext.RequestServices.GetRequiredService<ISpaceRepository>();
+        var firstSpace = await spaces.CreateFirstIfMissingAsync(
+            user.Id,
+            FirstSpaceName,
+            context.HttpContext.RequestAborted);
+
+        if (firstSpace is not null)
+        {
+            logger.LogInformation(
+                "Пользователю {UserId} создан первый space {SpaceId}.",
+                user.Id,
+                firstSpace.Id);
+        }
 
         identity.AddClaim(new Claim(DocsFlowClaims.UserId, user.Id.ToString()));
     }

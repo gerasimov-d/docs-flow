@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+        <OutputType>Exe</OutputType>
+        <!-- xunit.v3 работает через Microsoft.Testing.Platform, а не VSTest. -->
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Dapper"/>
+        <PackageReference Include="Microsoft.Extensions.Configuration"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection"/>
+        <PackageReference Include="Shouldly"/>
+        <PackageReference Include="Testcontainers.PostgreSql"/>
+        <PackageReference Include="xunit.v3"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\DocsFlow.Database.Migrator\DocsFlow.Database.Migrator.csproj"/>
+        <ProjectReference Include="..\..\src\DocsFlow.Spaces\DocsFlow.Spaces.csproj"/>
+        <!-- Space принадлежит пользователю: без users не создать ни владельца, ни участника. -->
+        <ProjectReference Include="..\..\src\DocsFlow.Users\DocsFlow.Users.csproj"/>
+    </ItemGroup>
+
+</Project>

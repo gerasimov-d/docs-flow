@@ -1,9 +1,11 @@
 using DocsFlow.Api.Authentication;
 using DocsFlow.Api.Endpoints;
 using DocsFlow.Api.Forwarding;
+using DocsFlow.Api.Spaces;
 using DocsFlow.Database;
 using DocsFlow.Llm;
 using DocsFlow.Rag;
+using DocsFlow.Spaces;
 using DocsFlow.Storage;
 using DocsFlow.Users;
 
@@ -14,6 +16,7 @@ builder.Services.AddForwardedHeaders(builder.Configuration);
 builder.Services.AddS3ObjectStorage(builder.Configuration);
 builder.Services.AddPostgresDatabase(builder.Configuration);
 builder.Services.AddUsers();
+builder.Services.AddSpaces();
 builder.Services.AddKeycloakAuthentication(builder.Configuration);
 builder.Services.AddLlm(builder.Configuration);
 builder.Services.AddRag(builder.Configuration);
@@ -34,5 +37,6 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapMeEndpoints();
+app.MapSpaceEndpoints();
 
 app.Run();

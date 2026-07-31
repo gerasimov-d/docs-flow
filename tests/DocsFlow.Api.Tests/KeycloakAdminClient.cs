@@ -80,6 +80,30 @@ internal sealed class KeycloakAdminClient : IDisposable
     }
 
     /// <summary>
+    /// Снимает защиту от перебора паролей в тестовом realm.
+    /// </summary>
+    /// <remarks>
+    /// В realm-файле она включена и остаётся включённой — правится только контейнер теста. Защита
+    /// считает подозрительными не только неверные пароли, но и успешные входы одного пользователя
+    /// чаще, чем раз в <c>quickLoginCheckMilliSeconds</c>. Тесты входят десятки раз подряд и
+    /// параллельно, поэтому Keycloak начинает отвечать «Invalid username or password» на верный
+    /// пароль — то есть тесты падали бы по причине, к их предмету отношения не имеющей.
+    /// </remarks>
+    public async Task DisableBruteForceProtectionAsync(CancellationToken cancellationToken)
+    {
+        using var response = await _http.PutAsJsonAsync(
+            $"{_baseAddress}/admin/realms/{_realm}",
+            new Dictionary<string, object?>
+            {
+                ["realm"] = _realm,
+                ["bruteForceProtected"] = false,
+            },
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
     /// Создаёт пользователя с уже подтверждённым email — подтверждение письмом в тесте не пройти,
     /// а провижининг требует <c>email_verified</c>.
     /// </summary>

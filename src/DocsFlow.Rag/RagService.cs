@@ -31,13 +31,19 @@ internal sealed class RagService : IRagService
         _chatClient = chatClient;
     }
 
-    public async Task<RagAnswer> AskAsync(string question, CancellationToken cancellationToken = default)
+    public async Task<RagAnswer> AskAsync(
+        Guid spaceId,
+        string question,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(question);
 
         var queryVector = await EmbedQuestionAsync(question, cancellationToken);
 
+        // Границы space задаются здесь и дальше по цепочке не теряются: в контекст модели уходят
+        // только те фрагменты, что вернул поиск, а он за пределы space не выходит.
         var matches = await _repository.SearchAsync(
+            spaceId,
             queryVector,
             _options.TopK,
             _options.MinScore,

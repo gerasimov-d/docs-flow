@@ -97,6 +97,21 @@ public sealed class RagServiceTests(PgVectorFixture fixture) : IClassFixture<PgV
     }
 
     [Fact]
+    public async Task A_document_of_another_space_never_reaches_the_model()
+    {
+        await IndexAsync(fixture.ForeignSpaceId, "archive/foreign", PassportText);
+
+        var chat = FakeChatClient.Returning("Паспорт выдан в 2019 году.", 1);
+        var answer = await AskAsync(fixture.SpaceId, chat);
+
+        // Фрагмент чужого space не попадает ни в выдачу, ни в контекст модели: до генерации
+        // дело не доходит вовсе, потому что искать в своём space нечего.
+        answer.Status.ShouldBe(RagAnswerStatus.NothingFound);
+        answer.Citations.ShouldBeEmpty();
+        chat.LastRequest.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task An_empty_index_reports_nothing_found()
     {
         await fixture.ResetAsync(Ct);
@@ -116,7 +131,9 @@ public sealed class RagServiceTests(PgVectorFixture fixture) : IClassFixture<PgV
         Should.NotThrow(() => scope.ServiceProvider.GetRequiredService<IRagService>());
     }
 
-    private async Task IndexAsync(string sourceKey, string text)
+    private Task IndexAsync(string sourceKey, string text) => IndexAsync(fixture.SpaceId, sourceKey, text);
+
+    private async Task IndexAsync(Guid spaceId, string sourceKey, string text)
     {
         await fixture.ResetAsync(Ct);
 
@@ -124,10 +141,12 @@ public sealed class RagServiceTests(PgVectorFixture fixture) : IClassFixture<PgV
 
         await scope.ServiceProvider
             .GetRequiredService<IDocumentIndexer>()
-            .IndexAsync(sourceKey, text, Ct);
+            .IndexAsync(spaceId, sourceKey, text, Ct);
     }
 
-    private async Task<RagAnswer> AskAsync(IChatClient? chatClient)
+    private Task<RagAnswer> AskAsync(IChatClient? chatClient) => AskAsync(fixture.SpaceId, chatClient);
+
+    private async Task<RagAnswer> AskAsync(Guid spaceId, IChatClient? chatClient)
     {
         using var scope = fixture.Services.CreateScope();
 
@@ -142,6 +161,6 @@ public sealed class RagServiceTests(PgVectorFixture fixture) : IClassFixture<PgV
             NullLogger<RagService>.Instance,
             chatClient);
 
-        return await service.AskAsync(Question, Ct);
+        return await service.AskAsync(spaceId, Question, Ct);
     }
 }

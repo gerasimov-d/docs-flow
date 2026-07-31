@@ -43,16 +43,40 @@ public sealed class RagMigrationTests(PgVectorFixture fixture) : IClassFixture<P
     }
 
     [Fact]
-    public async Task A_source_cannot_have_two_chunks_with_the_same_ordinal()
+    public async Task A_source_cannot_have_two_chunks_with_the_same_ordinal_within_a_space()
     {
         var constraints = await ScalarAsync<int>(
             """
             SELECT count(*)
             FROM pg_constraint
-            WHERE conrelid = 'rag_chunks'::regclass AND conname = 'ux_rag_chunks_source_ordinal'
+            WHERE conrelid = 'rag_chunks'::regclass AND conname = 'ux_rag_chunks_space_source_ordinal'
             """);
 
         constraints.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_chunk_cannot_exist_without_a_space()
+    {
+        // NOT NULL плюс внешний ключ: фрагмент, не принадлежащий никакому space, был бы виден
+        // из любого — то есть ровно тем, чего требование об изоляции не допускает.
+        var nullable = await ScalarAsync<bool>(
+            """
+            SELECT a.attnotnull
+            FROM pg_attribute a
+            WHERE a.attrelid = 'rag_chunks'::regclass AND a.attname = 'space_id'
+            """);
+
+        nullable.ShouldBeTrue();
+
+        var foreignKeys = await ScalarAsync<int>(
+            """
+            SELECT count(*)
+            FROM pg_constraint
+            WHERE conrelid = 'rag_chunks'::regclass AND conname = 'fk_rag_chunks_space' AND contype = 'f'
+            """);
+
+        foreignKeys.ShouldBe(1);
     }
 
     private async Task<T?> ScalarAsync<T>(string sql)

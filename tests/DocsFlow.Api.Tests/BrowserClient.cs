@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 
 namespace DocsFlow.Api.Tests;
 
@@ -42,6 +43,17 @@ public sealed class BrowserClient : IDisposable
         HttpContent? content,
         CancellationToken cancellationToken) =>
         SendAsync(HttpMethod.Post, url, content, cancellationToken);
+
+    public Task<HttpResponseMessage> DeleteAsync(string url, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Delete, url, content: null, cancellationToken);
+
+    /// <summary>Запрос с телом в JSON — так с API разговаривает веб-клиент.</summary>
+    public Task<HttpResponseMessage> SendJsonAsync<T>(
+        HttpMethod method,
+        string url,
+        T payload,
+        CancellationToken cancellationToken) =>
+        SendAsync(method, url, JsonContent.Create(payload), cancellationToken);
 
     private async Task<HttpResponseMessage> SendAsync(
         HttpMethod method,

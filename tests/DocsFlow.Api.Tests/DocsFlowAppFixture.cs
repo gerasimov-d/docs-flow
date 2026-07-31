@@ -10,6 +10,8 @@ using Testcontainers.Keycloak;
 using Testcontainers.PostgreSql;
 using Xunit;
 
+[assembly: AssemblyFixture(typeof(DocsFlow.Api.Tests.DocsFlowAppFixture))]
+
 namespace DocsFlow.Api.Tests;
 
 /// <summary>
@@ -17,6 +19,11 @@ namespace DocsFlow.Api.Tests;
 /// <c>Program</c>, что и в проде. Проверяет связку realm ↔ конфиг клиента ↔ настройки cookie —
 /// то, что не ловится ни одним изолированным тестом.
 /// </summary>
+/// <remarks>
+/// Фикстура уровня сборки: на классе Keycloak и Postgres поднимались бы столько раз, сколько
+/// в сборке тестовых классов, а Keycloak стартует дольше всех контейнеров в проекте. Тесты,
+/// которым нужна «чистая» история пользователя, берут собственного — см. <see cref="FreshUserEmail"/>.
+/// </remarks>
 public sealed class DocsFlowAppFixture : IAsyncLifetime
 {
     // Значения обязаны совпадать с infra/keycloak/realm-export.json.
@@ -35,6 +42,25 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
 
     /// <summary>Так Keycloak составит claim <c>name</c>, из которого берётся отображаемое имя.</summary>
     public const string UserDisplayName = UserFirstName + " " + UserLastName;
+
+    /// <summary>
+    /// Второй пользователь — чтобы проверять изоляцию: без него «чужой space» неоткуда взять.
+    /// </summary>
+    public const string OtherUserEmail = "other@docsflow.local";
+    public const string OtherUserPassword = "other-password";
+
+    private const string OtherUserFirstName = "Другой";
+    private const string OtherUserLastName = "Пользователь";
+
+    /// <summary>
+    /// Пользователь, который до своего теста ни разу не входил: только на нём можно проверить,
+    /// что первый space появляется именно при первом входе, а не был создан соседним тестом.
+    /// </summary>
+    public const string FreshUserEmail = "fresh@docsflow.local";
+    public const string FreshUserPassword = "fresh-password";
+
+    private const string FreshUserFirstName = "Новый";
+    private const string FreshUserLastName = "Пользователь";
 
     // Образы пинуются теми же версиями, что и в docker-compose.yml. Точная версия, а не 26.7:
     // сквозной тест разбирает HTML страницы входа, и её разметка может измениться в патче.
@@ -65,11 +91,24 @@ public sealed class DocsFlowAppFixture : IAsyncLifetime
 
         using var admin = new KeycloakAdminClient(keycloakAddress, Realm);
         await admin.AuthenticateAsync(AdminUsername, AdminPassword, TestContext.Current.CancellationToken);
+        await admin.DisableBruteForceProtectionAsync(TestContext.Current.CancellationToken);
         await admin.CreateUserAsync(
             UserEmail,
             UserPassword,
             UserFirstName,
             UserLastName,
+            TestContext.Current.CancellationToken);
+        await admin.CreateUserAsync(
+            OtherUserEmail,
+            OtherUserPassword,
+            OtherUserFirstName,
+            OtherUserLastName,
+            TestContext.Current.CancellationToken);
+        await admin.CreateUserAsync(
+            FreshUserEmail,
+            FreshUserPassword,
+            FreshUserFirstName,
+            FreshUserLastName,
             TestContext.Current.CancellationToken);
 
         _app = new DocsFlowApp(new Dictionary<string, string?>

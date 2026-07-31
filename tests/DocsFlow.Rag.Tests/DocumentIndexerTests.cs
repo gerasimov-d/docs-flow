@@ -23,10 +23,10 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         using var scope = fixture.Services.CreateScope();
         var count = await scope.ServiceProvider
             .GetRequiredService<IDocumentIndexer>()
-            .IndexAsync("archive/long", text, Ct);
+            .IndexAsync(fixture.SpaceId, "archive/long", text, Ct);
 
         count.ShouldBeGreaterThan(1);
-        (await fixture.CountChunksAsync("archive/long", Ct)).ShouldBe(count);
+        (await fixture.CountChunksAsync(fixture.SpaceId, "archive/long", Ct)).ShouldBe(count);
 
         // Номера фрагментов идут подряд с нуля: по ним собирается ссылка на первоисточник.
         (await OrdinalsAsync("archive/long")).ShouldBe(Enumerable.Range(0, count).ToArray());
@@ -41,14 +41,15 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         var indexer = scope.ServiceProvider.GetRequiredService<IDocumentIndexer>();
 
         await indexer.IndexAsync(
+            fixture.SpaceId,
             "archive/versioned",
             string.Join(" ", Enumerable.Range(0, 600).Select(i => $"слово{i}")),
             Ct);
 
-        var count = await indexer.IndexAsync("archive/versioned", "короткая новая версия", Ct);
+        var count = await indexer.IndexAsync(fixture.SpaceId, "archive/versioned", "короткая новая версия", Ct);
 
         count.ShouldBe(1);
-        (await fixture.CountChunksAsync("archive/versioned", Ct)).ShouldBe(1);
+        (await fixture.CountChunksAsync(fixture.SpaceId, "archive/versioned", Ct)).ShouldBe(1);
     }
 
     [Fact]
@@ -59,10 +60,10 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         using var scope = fixture.Services.CreateScope();
         var indexer = scope.ServiceProvider.GetRequiredService<IDocumentIndexer>();
 
-        await indexer.IndexAsync("archive/emptied", "текст, который потом исчезнет", Ct);
+        await indexer.IndexAsync(fixture.SpaceId, "archive/emptied", "текст, который потом исчезнет", Ct);
 
-        (await indexer.IndexAsync("archive/emptied", "   ", Ct)).ShouldBe(0);
-        (await fixture.CountChunksAsync("archive/emptied", Ct)).ShouldBe(0);
+        (await indexer.IndexAsync(fixture.SpaceId, "archive/emptied", "   ", Ct)).ShouldBe(0);
+        (await fixture.CountChunksAsync(fixture.SpaceId, "archive/emptied", Ct)).ShouldBe(0);
     }
 
     [Fact]
@@ -73,7 +74,7 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         using var scope = fixture.Services.CreateScope();
         await scope.ServiceProvider
             .GetRequiredService<IDocumentIndexer>()
-            .IndexAsync("archive/model", "паспорт выдан в 2019 году", Ct);
+            .IndexAsync(fixture.SpaceId, "archive/model", "паспорт выдан в 2019 году", Ct);
 
         // Пространства разных моделей несравнимы: без записи модели нельзя понять,
         // какие строки после её смены ещё не переиндексированы.
@@ -92,7 +93,7 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         var indexer = CreateIndexer(scope, new FakeEmbeddingGenerator(512, honorRequestedDimensions: false));
 
         var error = await Should.ThrowAsync<RagException>(
-            () => indexer.IndexAsync("archive/mismatch", "текст источника", Ct));
+            () => indexer.IndexAsync(fixture.SpaceId, "archive/mismatch", "текст источника", Ct));
 
         error.Message.ShouldContain("512");
         error.Message.ShouldContain("1024");
@@ -109,10 +110,10 @@ public sealed class DocumentIndexerTests(PgVectorFixture fixture) : IClassFixtur
         // Здесь деградировать нечем: без эмбеддингов документ не попадёт в индекс, и тихий
         // «успех» с пустым результатом был бы хуже явной ошибки.
         var error = await Should.ThrowAsync<RagException>(
-            () => indexer.IndexAsync("archive/failing", "текст источника", Ct));
+            () => indexer.IndexAsync(fixture.SpaceId, "archive/failing", "текст источника", Ct));
 
         error.InnerException.ShouldBeOfType<InvalidOperationException>();
-        (await fixture.CountChunksAsync("archive/failing", Ct)).ShouldBe(0);
+        (await fixture.CountChunksAsync(fixture.SpaceId, "archive/failing", Ct)).ShouldBe(0);
     }
 
     private static DocumentIndexer CreateIndexer(

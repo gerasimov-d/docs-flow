@@ -23,7 +23,11 @@ internal sealed class DocumentIndexer : IDocumentIndexer
         _logger = logger;
     }
 
-    public async Task<int> IndexAsync(string sourceKey, string text, CancellationToken cancellationToken = default)
+    public async Task<int> IndexAsync(
+        Guid spaceId,
+        string sourceKey,
+        string text,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceKey);
 
@@ -32,7 +36,7 @@ internal sealed class DocumentIndexer : IDocumentIndexer
 
         if (chunks.Count == 0)
         {
-            await _repository.ReplaceAsync(sourceKey, [], model, cancellationToken);
+            await _repository.ReplaceAsync(spaceId, sourceKey, [], model, cancellationToken);
             _logger.LogInformation("Источник {SourceKey} пуст, индекс очищен.", sourceKey);
 
             return 0;
@@ -63,7 +67,7 @@ internal sealed class DocumentIndexer : IDocumentIndexer
             }
         }
 
-        await _repository.ReplaceAsync(sourceKey, embedded, model, cancellationToken);
+        await _repository.ReplaceAsync(spaceId, sourceKey, embedded, model, cancellationToken);
 
         _logger.LogInformation(
             "Источник {SourceKey} проиндексирован: {ChunkCount} фрагментов, модель {Model}.",
