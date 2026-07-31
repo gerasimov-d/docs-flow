@@ -218,7 +218,7 @@ RETURNING id, keycloak_subject, email, display_name, created_at, updated_at, las
 
 | Свойство | Тип | Замечание |
 |---|---|---|
-| `Authority` | `string` | `[Required]`, напр. `http://localhost:8080/realms/docsflow` |
+| `Authority` | `string` | `[Required]`, напр. `http://localhost:8081/realms/docsflow` |
 | `ClientId` | `string` | `[Required]` |
 | `ClientSecret` | `string` | `[Required]`, конфиденциальный клиент |
 | `RequireHttps` | `bool` | по умолчанию `true`; управляет и метаданными, и флагом `Secure` у cookie |
@@ -345,7 +345,7 @@ Cookie шифруется ключами Data Protection. По умолчани�
     volumes:
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -371,8 +371,9 @@ Cookie шифруется ключами Data Protection. По умолчани�
   от готовности Keycloak в compose ничего не зависит — приложения там нет, — поэтому хрупкая
   проверка приносила бы только ложное «unhealthy» в `docker compose ps`. Заводить её имеет смысл
   тогда, когда в compose появится API с `depends_on`.
-- **Порт 8080** свободен и не конфликтует с MinIO (9000/9001) и Postgres (5432). Как и MinIO,
-  Keycloak поднимается **только в основном репозитории**, один на все worktree.
+- **Порт на хосте — 8081.** Изначально планировался 8080, но параллельная задача успела занять его
+  под nginx с веб-клиентом; 8080 отдан клиенту как входной точке. Как и MinIO, Keycloak
+  поднимается **только в основном репозитории**, один на все worktree.
 
 Том `keycloak` не нужен: состояние Keycloak живёт в Postgres.
 
@@ -481,7 +482,7 @@ realm ↔ конфиг клиента ↔ настройки cookie.
    неактуальна. Источник требований — прямые указания владельца, принятые решения — спеки в
    `docs/superpowers/specs/`.
 5. **Раздел «Окружение»** — Keycloak и Mailpit поднимаются только в основном репозитории, порты
-   8080/8025/1025; про базу `keycloak` и то, что init-скрипт не отработает на существующем томе.
+   8081/8025/1025; про базу `keycloak` и то, что init-скрипт не отработает на существующем томе.
 6. **Раздел «Команды»** — без изменений, `docker compose up -d` покрывает новые сервисы.
 
 Принципы «Оригинал — источник истины», «Provider-agnostic», «Деградация, а не отказ», «Никаких

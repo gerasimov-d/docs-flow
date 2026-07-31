@@ -1,0 +1,65 @@
+# Раздача собранного клиента. Единственная переменная — ${API_ORIGIN}, её подставляет
+# envsubst при старте контейнера. Остальные $-переменные nginx-овые: envsubst их не трогает,
+# потому что подставляет только имена, реально заданные в окружении.
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Версия сервера в заголовках — лишняя подсказка тому, кто ищет уязвимости.
+    server_tokens off;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    # Проба живости для healthcheck: не пишем её в access-лог, иначе он утонет в шуме.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        include /etc/nginx/snippets/security-headers.conf;
+        return 200 "ok\n";
+    }
+
+    # Клиент всегда ходит на относительный /api — так же, как через dev-прокси Vite.
+    # Значит фронт не знает адрес бэкенда и обходится без CORS.
+    location /api/ {
+        proxy_pass ${API_ORIGIN};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Документы бывают большими: ограничение по умолчанию (1 МБ) их не пропустит.
+        client_max_body_size 100m;
+        proxy_request_buffering off;
+    }
+
+    # Имена файлов в assets содержат хеш содержимого: меняется файл — меняется имя.
+    # Поэтому старое имя можно кешировать сколь угодно долго.
+    location /assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # index.html кешировать нельзя: он перечисляет текущие имена ассетов, и закешированный
+    # будет вести на файлы предыдущей сборки.
+    location = /index.html {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # Маршруты разбирает роутер в браузере, на сервере таких путей нет.
+    # Поэтому всё неизвестное отдаём index.html, а не 404.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

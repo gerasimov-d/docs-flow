@@ -33,5 +33,6 @@ Dev-креденшелы в репозитории — тот же порядо�
 
 ## Локальные адреса
 
-- Админка Keycloak — http://localhost:8080 (логин/пароль из `docker-compose.yml`).
+- Админка Keycloak — http://localhost:8081 (логин/пароль из `docker-compose.yml`). Порт 8081, а не
+  8080: на 8080 хоста живёт nginx с веб-клиентом.
 - Письма подтверждения — http://localhost:8025 (Mailpit).

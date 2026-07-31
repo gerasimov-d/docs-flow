@@ -86,7 +86,8 @@ services:
       # Realm импортируется только если его ещё нет: правки в файле на созданный realm не влияют.
       - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json:ro
     ports:
-      - "8080:8080"   # админка и страницы входа
+      # 8080 внутри контейнера, 8081 на хосте: на 8080 хоста живёт nginx с веб-клиентом.
+      - "8081:8080"   # админка и страницы входа
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +99,26 @@ services:
     ports:
       - "1025:1025"   # SMTP, сюда пишет Keycloak
       - "8025:8025"   # веб-интерфейс: читать письма
+
+  # Собранный клиент отдаёт nginx, а не бэкенд: статика и API живут отдельными процессами.
+  # Он же проксирует /api, поэтому браузер видит один origin и обходится без CORS.
+  web:
+    build:
+      context: client
+    environment:
+      # Пока API запускается на хосте через `dotnet run`. Когда он переедёт в compose,
+      # значение станет http://api:8080.
+      API_ORIGIN: ${API_ORIGIN:-http://host.docker.internal:5023}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
 
 volumes:
   minio-data:

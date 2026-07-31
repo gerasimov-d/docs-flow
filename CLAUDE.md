@@ -14,28 +14,28 @@
 
 Кодовое имя не финализировано. В коде используется `DocsFlow`.
 
-## Статус
-
-Ранняя стадия: собирается инфраструктурный слой, продуктовой функциональности пока нет.
-
-Источник требований — прямые указания владельца в задаче. Прежняя база заметок в Notion
-(«Family Vault») неактуальна: она описывала приватный семейный архив и на неё опираться нельзя.
-Принятые решения фиксируются спеками в `docs/superpowers/specs/`.
+Источник требований — прямые указания владельца в задаче. Принятые решения фиксируются спеками
+в `docs/superpowers/specs/`.
 
 ## Структура
 
 ```
 src/DocsFlow.Api/                ASP.NET Core приложение: конвейер аутентификации и эндпоинты
 src/DocsFlow.Storage/            объектное хранилище: IObjectStorage + реализация поверх S3
-src/DocsFlow.Database/           доступ к Postgres: IDbConnectionFactory + Dapper
-src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный процесс)
+src/DocsFlow.Database/           доступ к данным: Npgsql + Dapper
+src/DocsFlow.Database.Migrator/  раннер миграций FluentMigrator (отдельный контейнер)
 src/DocsFlow.Users/              пользователи: модель, репозиторий, провижининг при входе
 infra/                           конфигурация окружения: realm Keycloak, init-скрипты Postgres
 tests/                           интеграционные тесты (Testcontainers)
+client/                          веб-клиент на React, отдаётся nginx
 ```
 
-Версии пакетов — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
+Серверный код лежит в `src/`, клиентский — в `client/`. Они не смешиваются: у клиента своя
+сборка, свои зависимости и свой контейнер, и `dotnet` про него ничего не знает.
+
+Версии пакетов .NET — только в `Directory.Packages.props` (CPM). Общие свойства проектов —
 в `Directory.Build.props`. В отдельных `.csproj` версии и `TargetFramework` не дублируются.
+Зависимости клиента живут в своём `package.json` и фиксируются `package-lock.json`.
 
 ## Команды
 
@@ -45,7 +45,32 @@ dotnet build
 dotnet test               # поднимает свои контейнеры, compose для этого не нужен
 ```
 
-Локальное окружение — MinIO, Postgres, Keycloak и Mailpit; подробности в разделе «Окружение».
+Локальное окружение — MinIO, Postgres, Keycloak, Mailpit и веб-клиент; подробности в разделе
+«Окружение».
+
+Клиент собирается и проверяется своими командами, `dotnet` его не трогает:
+
+```bash
+cd client
+npm ci                    # первый запуск в новом worktree
+npm run check             # типы + линт + формат + тесты
+npm run dev               # dev-сервер на 5173, /api проксируется на localhost:5023
+```
+
+## Веб-клиент
+
+SPA на React (Vite, TypeScript, React Router, TanStack Query, Tailwind). Собирается в статику
+и отдаётся отдельным контейнером с nginx — бэкенд статику не раздаёт. Тот же nginx проксирует
+`/api` на API, поэтому браузер видит один origin и CORS не нужен.
+
+Серверного рендеринга нет: вход в приложение за авторизацией, индексировать поисковикам нечего.
+
+Код разложен по **Feature-Sliced Design**: `app` → `pages` → `widgets` → `features` →
+`entities` → `shared`. Слой импортирует только нижележащие и только через public API слайса
+(`index.ts`). Оба правила проверяет ESLint, а не code review: нарушение валит `npm run check`.
+
+Детали — в `client/CLAUDE.md` и в `README.md` каждого слоя. Правило «не добавлять зависимости
+без согласования» распространяется и на npm-пакеты.
 
 ## Параллельные сессии
 
@@ -93,6 +118,8 @@ dotnet build && dotnet test                   # обязательно зелё�
 git push origin HEAD:dev
 ```
 
+Задача трогала `client/` — там же зелёный `npm run check`.
+
 Push отклонён, потому что кто-то влил раньше — повторить цикл с начала. Не форсить.
 
 После интеграции убрать за собой:
@@ -105,7 +132,8 @@ git -C ~/pet/docs-flow branch -d <область>/<тема>
 ### Окружение
 
 Стек поднимается **только в основном репозитории** и один на все worktree: MinIO (9000/9001),
-Postgres (5432), Keycloak (8080), Mailpit (1025 SMTP и 8025 веб-интерфейс). В worktree
+Postgres (5432), Keycloak (8081), Mailpit (1025 SMTP и 8025 веб-интерфейс), веб-клиент (8080).
+В worktree
 `docker compose up` не запускать: порты уже заняты, второй стек не встанет. Конфигурация в
 `appsettings.Development.json` одинакова во всех worktree и указывает на те же адреса.
 
@@ -124,6 +152,14 @@ Postgres (5432), Keycloak (8080), Mailpit (1025 SMTP и 8025 веб-интерф
   http://localhost:8025.
 
 Подробнее — `infra/keycloak/README.md`.
+
+Клиент в compose — сервис `web` на порту 8080, тот же контейнер с nginx, что и в проде.
+Для разработки он не нужен: `npm run dev` поднимает Vite со своим прокси и не конфликтует
+с другими worktree. Собирать образ имеет смысл, когда проверяется именно раздача — сборка,
+кеш-заголовки, SPA-fallback.
+
+`node_modules` в каждом worktree свой и в git не попадает: после создания worktree нужен
+`npm ci` в `client/`.
 
 ## Продуктовые принципы
 
